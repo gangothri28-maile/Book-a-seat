@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # SeatSurge – Flash-Sale Ticketing Platform
 ### Problem Statement PS07: High-Concurrency Flash-Sale Ticketing Architecture
 
@@ -152,12 +151,12 @@ npm start
 ```
 The server will output:
 ```text
-=======================================================
+
   🚀 SeatSurge Flash-Sale Ticketing Server Active!
   🌐 Frontend & API running at: http://localhost:4000
   🔒 Database Engine: embedded (or postgres)
   ⚡ Real-Time Engine: Socket.IO connected
-=======================================================
+
 ```
 
 Open your web browser and navigate to:
