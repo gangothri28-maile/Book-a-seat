@@ -1,0 +1,25 @@
+{
+  "name": "seatsurge-backend",
+  "version": "1.0.0",
+  "description": "SeatSurge - Flash-Sale Ticketing Platform Backend",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "seed": "node seeds/seed.js",
+    "test:concurrency": "node tests/concurrency.test.js",
+    "test:queue": "node tests/queue.test.js",
+    "test:bot": "node tests/bot.test.js",
+    "test:all": "node tests/run-all-tests.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "socket.io": "^4.7.5",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.1",
+    "dotenv": "^16.4.5",
+    "pg": "^8.11.5",
+    "ioredis": "^5.4.1"
+  }
+}

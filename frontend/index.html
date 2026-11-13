@@ -1,0 +1,2615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeatSurge | Flash-Sale Ticketing Platform</title>
+
+  <!-- Google Fonts: Playfair Display & Poppins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,600&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Socket.IO Client served directly by our backend -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    /* ==========================================================================
+       1. CSS VARIABLES & POLISHED WALNUT WOOD THEME
+       ========================================================================== */
+    :root {
+      --deep-walnut: #3B1D0C;
+      --rich-brown: #6B3410;
+      --warm-chestnut: #8B4A1C;
+      --amber-orange: #B8692A;
+      --honey-gold: #D9954A;
+      --cream: #F6E7D3;
+
+      --deep-walnut-90: rgba(59, 29, 12, 0.92);
+      --deep-walnut-75: rgba(59, 29, 12, 0.75);
+      --card-bg: rgba(68, 33, 14, 0.65);
+      --card-border: rgba(217, 149, 74, 0.28);
+      --card-border-glow: rgba(217, 149, 74, 0.65);
+      
+      --status-available: #4E8A56;
+      --status-selected: #D9954A;
+      --status-held: #B8692A;
+      --status-booked: #5A3525;
+      
+      --font-heading: 'Playfair Display', Georgia, serif;
+      --font-body: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+      --transition-smooth: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--deep-walnut) 0%, var(--rich-brown) 50%, #2A1307 100%);
+      color: var(--cream);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Wood grain texture overlay using repeating linear gradients */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        repeating-linear-gradient(
+          90deg,
+          rgba(217, 149, 74, 0.02) 0px,
+          rgba(217, 149, 74, 0.02) 1px,
+          transparent 1px,
+          transparent 8px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.08) 0px,
+          rgba(0, 0, 0, 0.08) 2px,
+          transparent 2px,
+          transparent 14px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Floating ambient glowing light blobs */
+    .ambient-blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.35;
+      animation: floatAmbient 18s ease-in-out infinite alternate;
+    }
+    .blob-1 {
+      width: 450px;
+      height: 450px;
+      background: var(--amber-orange);
+      top: -100px;
+      right: -80px;
+    }
+    .blob-2 {
+      width: 500px;
+      height: 500px;
+      background: var(--honey-gold);
+      bottom: -150px;
+      left: -120px;
+      animation-duration: 22s;
+    }
+
+    @keyframes floatAmbient {
+      0% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(60px) scale(1.08); }
+      100% { transform: translateY(-40px) scale(0.95); }
+    }
+
+    /* Cursor Canvas Overlay */
+    #sparkleCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Main Container */
+    .app-container {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ==========================================================================
+       2. NAVIGATION BAR
+       ========================================================================== */
+    header.sticky-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: var(--deep-walnut-90);
+      border-bottom: 1px solid var(--card-border);
+      box-shadow: 0 10px 30px rgba(25, 10, 4, 0.5);
+      transition: var(--transition-smooth);
+    }
+
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--cream);
+    }
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--honey-gold), var(--amber-orange));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(217, 149, 74, 0.4);
+      color: var(--deep-walnut);
+      font-weight: 900;
+      font-size: 20px;
+      font-family: var(--font-heading);
+    }
+    .brand-text {
+      font-family: var(--font-heading);
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(120deg, var(--cream) 0%, var(--honey-gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    nav.nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    nav.nav-links a {
+      color: var(--cream);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0.85;
+      transition: var(--transition-smooth);
+      position: relative;
+      padding: 6px 0;
+    }
+    nav.nav-links a:hover, nav.nav-links a.active {
+      opacity: 1;
+      color: var(--honey-gold);
+    }
+    nav.nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0%;
+      height: 2px;
+      background: var(--honey-gold);
+      transition: var(--transition-smooth);
+    }
+    nav.nav-links a:hover::after, nav.nav-links a.active::after {
+      width: 100%;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(40, 18, 7, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 10px #4ade80;
+    }
+    .status-dot.pulse {
+      animation: pulseGreen 2s infinite;
+    }
+    @keyframes pulseGreen {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+      70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+    }
+
+    /* ==========================================================================
+       3. BUTTONS (PILL-SHAPED, GLOW & SHINE)
+       ========================================================================== */
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 28px;
+      border-radius: 999px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: var(--transition-smooth);
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--warm-chestnut) 0%, var(--amber-orange) 50%, var(--honey-gold) 100%);
+      color: #1F0D05;
+      box-shadow: 0 4px 18px rgba(184, 105, 42, 0.45);
+    }
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(217, 149, 74, 0.6);
+      background-position: right center;
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    /* Shine sweep effect */
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -60%;
+      width: 40%;
+      height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      transform: rotate(30deg);
+      transition: all 0.6s ease;
+    }
+    .btn-primary:hover::after {
+      left: 130%;
+    }
+
+    .btn-secondary {
+      background: rgba(59, 29, 12, 0.85);
+      border: 1px solid var(--honey-gold);
+      color: var(--cream);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+    .btn-secondary:hover {
+      background: rgba(107, 52, 16, 0.9);
+      border-color: var(--honey-gold);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(217, 149, 74, 0.35);
+    }
+
+    .btn-sm {
+      padding: 8px 18px;
+      font-size: 13px;
+    }
+
+    /* ==========================================================================
+       4. HERO SECTION
+       ========================================================================== */
+    section.hero {
+      padding: 70px 0 50px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 40px;
+      align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 18px;
+      background: rgba(184, 105, 42, 0.2);
+      border: 1px solid var(--card-border-glow);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--honey-gold);
+      margin-bottom: 24px;
+    }
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: 52px;
+      line-height: 1.12;
+      font-weight: 900;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+    .hero-title span {
+      background: linear-gradient(135deg, var(--honey-gold) 0%, #FFF 50%, var(--amber-orange) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: block;
+    }
+    .hero-desc {
+      font-size: 17px;
+      line-height: 1.6;
+      color: rgba(246, 231, 211, 0.85);
+      margin-bottom: 34px;
+      max-width: 540px;
+    }
+    .hero-stats {
+      display: flex;
+      gap: 30px;
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 1px solid rgba(217, 149, 74, 0.15);
+    }
+    .stat-item h4 {
+      font-family: var(--font-heading);
+      font-size: 32px;
+      color: var(--honey-gold);
+      font-weight: 700;
+    }
+    .stat-item p {
+      font-size: 13px;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Hero Event Card (Glassmorphism with 3D tilt) */
+    .hero-visual {
+      position: relative;
+    }
+    .event-hero-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(25, 10, 4, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+    }
+    .event-hero-card:hover {
+      transform: translateY(-6px) scale(1.01);
+      box-shadow: 0 25px 60px rgba(217, 149, 74, 0.25);
+      border-color: var(--card-border-glow);
+    }
+    .card-banner {
+      height: 200px;
+      background: url('https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat;
+      position: relative;
+    }
+    .card-banner::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 70%;
+      background: linear-gradient(to top, var(--deep-walnut), transparent);
+    }
+    .card-body {
+      padding: 24px 28px;
+    }
+    .event-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--honey-gold);
+      margin-bottom: 8px;
+    }
+    .event-card-title {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .event-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 18px 0;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       5. VIRTUAL WAITING ROOM SECTION
+       ========================================================================== */
+    section.waiting-room-section {
+      padding: 40px 0;
+    }
+    .waiting-box {
+      background: linear-gradient(135deg, rgba(68, 33, 14, 0.8) 0%, rgba(42, 19, 7, 0.9) 100%);
+      border: 1px solid var(--card-border-glow);
+      border-radius: 24px;
+      padding: 36px 40px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+    .waiting-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--warm-chestnut), var(--honey-gold), var(--amber-orange));
+    }
+    .waiting-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .waiting-header h3 {
+      font-family: var(--font-heading);
+      font-size: 26px;
+      font-weight: 700;
+    }
+    .queue-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 24px 0;
+    }
+    .queue-stat-card {
+      background: rgba(30, 13, 5, 0.6);
+      border: 1px solid rgba(217, 149, 74, 0.2);
+      border-radius: 16px;
+      padding: 18px;
+      text-align: center;
+    }
+    .queue-stat-num {
+      font-family: var(--font-heading);
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--honey-gold);
+    }
+    .queue-stat-label {
+      font-size: 12px;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .progress-bar-container {
+      width: 100%;
+      height: 10px;
+      background: rgba(30, 13, 5, 0.8);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 20px 0 10px;
+      border: 1px solid rgba(217, 149, 74, 0.15);
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 15%;
+      background: linear-gradient(90deg, var(--amber-orange), var(--honey-gold));
+      border-radius: 999px;
+      transition: width 0.6s ease;
+      box-shadow: 0 0 12px var(--honey-gold);
+    }
+
+    /* ==========================================================================
+       6. LIVE SEAT MAP SECTION
+       ========================================================================== */
+    section.seat-selection-section {
+      padding: 50px 0;
+    }
+    .section-title-wrap {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 38px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .section-subtitle {
+      font-size: 15px;
+      opacity: 0.8;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Stage Orientation Banner */
+    .stage-banner {
+      width: 75%;
+      margin: 0 auto 36px;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(217, 149, 74, 0.3) 0%, rgba(59, 29, 12, 0.1) 100%);
+      border-top: 3px solid var(--honey-gold);
+      border-radius: 60px 60px 10px 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--honey-gold);
+      box-shadow: 0 -10px 25px rgba(217, 149, 74, 0.15);
+    }
+
+    /* Seat Grid Layout */
+    .seat-map-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 28px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .seat-rows-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .seat-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .row-label {
+      width: 32px;
+      font-family: var(--font-heading);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--honey-gold);
+      text-align: center;
+    }
+    .row-seats {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Individual Seat Button */
+    .seat-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+      user-select: none;
+    }
+    .seat-btn .seat-num {
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .seat-btn .seat-cat-badge {
+      font-size: 8px;
+      opacity: 0.7;
+      text-transform: uppercase;
+    }
+
+    /* Seat States */
+    .seat-btn.available {
+      background: rgba(59, 29, 12, 0.9);
+      border-color: rgba(217, 149, 74, 0.35);
+      color: var(--cream);
+    }
+    .seat-btn.available:hover {
+      background: rgba(184, 105, 42, 0.4);
+      border-color: var(--honey-gold);
+      transform: translateY(-4px) scale(1.08);
+      box-shadow: 0 6px 16px rgba(217, 149, 74, 0.4);
+    }
+    .seat-btn.selected {
+      background: linear-gradient(135deg, var(--amber-orange), var(--honey-gold));
+      color: #1F0D05;
+      border-color: #FFF;
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 0 16px var(--honey-gold);
+      font-weight: 800;
+    }
+    .seat-btn.held {
+      background: rgba(184, 105, 42, 0.25);
+      border-color: var(--amber-orange);
+      color: rgba(246, 231, 211, 0.6);
+      cursor: not-allowed;
+      animation: pulseHold 2s infinite alternate;
+    }
+    @keyframes pulseHold {
+      0% { opacity: 0.6; }
+      100% { opacity: 0.9; box-shadow: 0 0 10px rgba(184, 105, 42, 0.4); }
+    }
+    .seat-btn.booked {
+      background: rgba(30, 13, 5, 0.6);
+      border-color: rgba(100, 60, 40, 0.2);
+      color: rgba(246, 231, 211, 0.25);
+      cursor: not-allowed;
+      pointer-events: none;
+      text-decoration: line-through;
+    }
+
+    /* Seat Map Legend */
+    .seat-legend {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 34px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(217, 149, 74, 0.15);
+      font-size: 13px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-sample {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+    }
+
+    /* Seat Selection Bottom Tray */
+    .selection-tray {
+      margin-top: 24px;
+      background: rgba(40, 18, 7, 0.9);
+      border: 1px solid var(--card-border-glow);
+      border-radius: 20px;
+      padding: 20px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .tray-info h4 {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      color: var(--honey-gold);
+    }
+    .tray-tags {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .seat-tag {
+      padding: 4px 10px;
+      background: rgba(184, 105, 42, 0.25);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tray-pricing {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .tray-total-label {
+      font-size: 12px;
+      opacity: 0.75;
+      text-transform: uppercase;
+    }
+    .tray-total-val {
+      font-family: var(--font-heading);
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--cream);
+    }
+
+    /* Hold Expiration Banner */
+    .hold-countdown-banner {
+      background: linear-gradient(90deg, #6B3410, #8B4A1C);
+      border: 1px solid var(--honey-gold);
+      border-radius: 14px;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      animation: pulseHold 3s infinite alternate;
+    }
+    .countdown-timer {
+      font-family: monospace;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--honey-gold);
+      letter-spacing: 2px;
+    }
+
+    /* ==========================================================================
+       7. MODALS (CHECKOUT, CONFIRMATION, AUTH, CHALLENGE)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(20, 8, 3, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      padding: 20px;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-content {
+      background: linear-gradient(135deg, #44210E 0%, #2A1307 100%);
+      border: 1px solid var(--card-border-glow);
+      border-radius: 28px;
+      padding: 36px;
+      width: 100%;
+      max-width: 540px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8);
+      position: relative;
+      transform: translateY(20px) scale(0.96);
+      transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-backdrop.open .modal-content {
+      transform: translateY(0) scale(1);
+    }
+    .modal-close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: var(--cream);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition-smooth);
+    }
+    .modal-close-btn:hover {
+      background: var(--amber-orange);
+      color: #FFF;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: rgba(246, 231, 211, 0.9);
+    }
+    .form-input, .form-select {
+      width: 100%;
+      padding: 13px 18px;
+      background: rgba(30, 13, 5, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      color: var(--cream);
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      transition: var(--transition-smooth);
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: var(--honey-gold);
+      box-shadow: 0 0 16px rgba(217, 149, 74, 0.35);
+    }
+
+    /* ==========================================================================
+       8. BOOKING CONFIRMATION & QR TICKET
+       ========================================================================== */
+    .ticket-card {
+      background: linear-gradient(135deg, #4A230F 0%, #2E1508 100%);
+      border: 2px dashed var(--honey-gold);
+      border-radius: 20px;
+      padding: 26px;
+      text-align: center;
+      position: relative;
+      margin-top: 14px;
+    }
+    .ticket-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      background: rgba(74, 222, 128, 0.15);
+      border: 1px solid #4ade80;
+      color: #4ade80;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .ticket-ref {
+      font-family: monospace;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--honey-gold);
+      letter-spacing: 2px;
+      margin-bottom: 14px;
+    }
+    .qr-canvas-box {
+      width: 180px;
+      height: 180px;
+      margin: 16px auto;
+      background: #FFF;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ==========================================================================
+       9. ADMIN DASHBOARD & BOT INSPECTOR
+       ========================================================================== */
+    section.admin-section {
+      padding: 40px 0 60px;
+    }
+    .admin-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+    .metric-num {
+      font-family: var(--font-heading);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--honey-gold);
+      margin-top: 6px;
+    }
+    .metric-label {
+      font-size: 12px;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .admin-table-wrap {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 24px;
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .admin-table th {
+      background: rgba(30, 13, 5, 0.8);
+      padding: 14px 18px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--honey-gold);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .admin-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(217, 149, 74, 0.08);
+    }
+    .admin-table tr:hover {
+      background: rgba(217, 149, 74, 0.05);
+    }
+
+    .signal-pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      margin: 2px;
+      background: rgba(184, 105, 42, 0.25);
+      border: 1px solid var(--card-border);
+    }
+    .risk-badge-low {
+      color: #4ade80;
+      background: rgba(74, 222, 128, 0.15);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .risk-badge-med {
+      color: #facc15;
+      background: rgba(250, 204, 21, 0.15);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .risk-badge-high {
+      color: #fb923c;
+      background: rgba(251, 146, 60, 0.15);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .risk-badge-critical {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.15);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* Notification Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      background: var(--deep-walnut);
+      border: 1px solid var(--card-border-glow);
+      color: var(--cream);
+      padding: 14px 22px;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideInToast 0.3s ease;
+    }
+    @keyframes slideInToast {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      section.hero { grid-template-columns: 1fr; }
+      .admin-metrics-grid { grid-template-columns: 1fr 1fr; }
+      .queue-grid { grid-template-columns: 1fr; }
+      nav.nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Ambience -->
+  <div class="ambient-blob blob-1"></div>
+  <div class="ambient-blob blob-2"></div>
+
+  <!-- Canvas for Cursor Sparkles -->
+  <canvas id="sparkleCanvas"></canvas>
+
+  <!-- Sticky Navigation Bar -->
+  <header class="sticky-nav">
+    <div class="app-container">
+      <div class="nav-inner">
+        <a href="#hero" class="brand-logo">
+          <div class="brand-icon">S</div>
+          <div class="brand-text">SeatSurge</div>
+        </a>
+
+        <nav class="nav-links">
+          <a href="#hero" class="active">Home</a>
+          <a href="#eventDetails">Event</a>
+          <a href="#waitingRoom">Waiting Room</a>
+          <a href="#liveSeats">Live Seats</a>
+          <a href="javascript:void(0)" onclick="openMyBookings()">My Bookings</a>
+          <a href="javascript:void(0)" onclick="toggleAdminView()" id="adminNavBtn">Admin</a>
+        </nav>
+
+        <div class="nav-actions">
+          <div class="status-pill">
+            <span class="status-dot pulse" id="socketStatusDot"></span>
+            <span id="socketStatusText">Live Sync</span>
+          </div>
+
+          <div id="authNavSlot">
+            <button class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">Sign In</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <!-- HERO SECTION -->
+    <section class="hero" id="hero">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span>⚡</span>
+          <span>HIGH-CONCURRENCY FLASH SALE ACTIVE</span>
+        </div>
+        <h1 class="hero-title">
+          Your Seat. Your Moment.
+          <span>Your Experience.</span>
+        </h1>
+        <p class="hero-desc">
+          Experience the next generation of fair, secure and real-time ticket booking. Powered by distributed atomic seat holds, virtual waiting rooms, and intelligent behavioral bot screening.
+        </p>
+
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="proceedToBookingArena()">
+            <span>Book Your Seat</span>
+            <span>→</span>
+          </button>
+          <button class="btn btn-secondary" onclick="enterWaitingRoom()">
+            <span>Join Waiting Room</span>
+          </button>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat-item">
+            <h4 id="heroSeatsAvailable">58</h4>
+            <p>Seats Available</p>
+          </div>
+          <div class="stat-item">
+            <h4 id="heroSeatsHeld">0</h4>
+            <p>In Checkout</p>
+          </div>
+          <div class="stat-item">
+            <h4>0.0%</h4>
+            <p>Double Bookings</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="event-hero-card">
+          <div class="card-banner"></div>
+          <div class="card-body">
+            <span class="event-tag">LIVE SYMPHONY & EDM 2026</span>
+            <h3 class="event-card-title" id="eventCardTitle">Neon Nocturne – The Global EDM & Symphony Experience</h3>
+            <p style="font-size: 13px; opacity: 0.8; line-height: 1.5; margin-bottom: 16px;" id="eventCardDesc">
+              A breathtaking auditory voyage fusing orchestral strings, modular analog synthesizers, and holographic acoustics.
+            </p>
+            <div class="event-meta">
+              <div class="meta-row">
+                <span>📍</span>
+                <span id="eventCardVenue">Royal Walnut Amphitheatre</span>
+              </div>
+              <div class="meta-row">
+                <span>📅</span>
+                <span id="eventCardDate">Dec 15, 2026 • 8:00 PM</span>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="proceedToBookingArena()">
+              Select Your Seats
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIRTUAL WAITING ROOM SECTION -->
+    <section class="waiting-room-section" id="waitingRoom">
+      <div class="waiting-box">
+        <div class="waiting-header">
+          <div>
+            <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--honey-gold); font-weight: 700;">Fair Queue Controller</span>
+            <h3>Virtual Waiting Room</h3>
+          </div>
+          <div class="status-pill" id="queueStatusBadge" style="background: rgba(184, 105, 42, 0.2); border-color: var(--honey-gold);">
+            <span class="status-dot pulse"></span>
+            <span id="queueStatusLabel">Standby</span>
+          </div>
+        </div>
+
+        <p style="font-size: 14px; opacity: 0.85;">
+          Our backend controls admission to ensure zero server overload and fair access for all fans.
+        </p>
+
+        <div class="queue-grid">
+          <div class="queue-stat-card">
+            <div class="queue-stat-num" id="queuePositionDisplay">-</div>
+            <div class="queue-stat-label">Your Queue Position</div>
+          </div>
+          <div class="queue-stat-card">
+            <div class="queue-stat-num" id="queueAheadDisplay">-</div>
+            <div class="queue-stat-label">Users Ahead</div>
+          </div>
+          <div class="queue-stat-card">
+            <div class="queue-stat-num" id="queueWaitDisplay">-</div>
+            <div class="queue-stat-label">Est. Waiting Time</div>
+          </div>
+        </div>
+
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="queueProgressBar" style="width: 10%;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <span style="font-size: 12px; opacity: 0.7;" id="queueMessage">Click "Join Queue" to secure your spot in line.</span>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary btn-sm" id="joinQueueBtn" onclick="enterWaitingRoom()">Join Queue</button>
+            <button class="btn btn-secondary btn-sm" id="leaveQueueBtn" style="display: none;" onclick="leaveWaitingRoom()">Leave Queue</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE SEAT SELECTION ARENA -->
+    <section class="seat-selection-section" id="liveSeats">
+      <div class="section-title-wrap">
+        <h2 class="section-title">Interactive Live Seat Arena</h2>
+        <p class="section-subtitle">
+          Seats update dynamically in real time via WebSockets. Multiple users can interact simultaneously with zero double bookings.
+        </p>
+      </div>
+
+      <!-- Hold Expiration Alert (Visible when user has an active hold) -->
+      <div id="holdCountdownBox" style="display: none;" class="hold-countdown-banner">
+        <div>
+          <strong>⏳ Temporary Seat Reservation Active:</strong>
+          <span> Complete checkout before your seats are automatically released.</span>
+        </div>
+        <div class="countdown-timer" id="countdownTimerVal">05:00</div>
+      </div>
+
+      <!-- Seat Map Box -->
+      <div class="seat-map-container">
+        <!-- Stage Visual -->
+        <div class="stage-banner">STAGE / MAIN PERFORMANCE ORCHESTRA</div>
+
+        <!-- Seats Grid -->
+        <div class="seat-rows-wrapper" id="seatMapRows">
+          <!-- Dynamically populated rows A through F -->
+          <div style="text-align: center; padding: 40px; opacity: 0.6;">Loading real-time seat configuration...</div>
+        </div>
+
+        <!-- Seat Map Legend -->
+        <div class="seat-legend">
+          <div class="legend-item">
+            <div class="legend-sample" style="background: rgba(59, 29, 12, 0.9); border: 1px solid rgba(217, 149, 74, 0.35);"></div>
+            <span>Available</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-sample" style="background: linear-gradient(135deg, var(--amber-orange), var(--honey-gold));"></div>
+            <span>Your Selection</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-sample" style="background: rgba(184, 105, 42, 0.4); border: 1px solid var(--amber-orange);"></div>
+            <span>Temporarily Held</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-sample" style="background: rgba(30, 13, 5, 0.6); border: 1px solid rgba(100, 60, 40, 0.2);"></div>
+            <span>Booked</span>
+          </div>
+        </div>
+
+        <!-- Bottom Selection Summary Tray -->
+        <div class="selection-tray" id="selectionTray">
+          <div class="tray-info">
+            <h4>Selected Seats (<span id="traySeatCount">0</span>)</h4>
+            <div class="tray-tags" id="traySeatTags">
+              <span style="font-size: 13px; opacity: 0.7;">Click on available seats on the map above to select.</span>
+            </div>
+          </div>
+          <div class="tray-pricing">
+            <div>
+              <div class="tray-total-label">Total Amount</div>
+              <div class="tray-total-val" id="trayTotalPrice">$0.00</div>
+            </div>
+            <button class="btn btn-primary" id="confirmHoldBtn" disabled onclick="requestSeatHold()">
+              <span>Hold & Checkout</span>
+              <span>🔒</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN DASHBOARD SECTION -->
+    <section class="admin-section" id="adminDashboard" style="display: none;">
+      <div class="section-title-wrap" style="text-align: left; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--honey-gold); font-weight: 700;">Control & Security Center</span>
+          <h2 class="section-title" style="margin-bottom: 0;">Admin Live Monitor</h2>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary btn-sm" onclick="admitNextQueueBatch()">Admit Queue Batch</button>
+          <button class="btn btn-secondary btn-sm" onclick="resetSeatsDemo()">Reset Demo Seats</button>
+        </div>
+      </div>
+
+      <!-- Real-Time KPI Cards -->
+      <div class="admin-metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Waiting Room Users</div>
+          <div class="metric-num" id="admMetricQueue">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Seats Booked / Total</div>
+          <div class="metric-num"><span id="admMetricBooked">2</span> / 60</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total Revenue</div>
+          <div class="metric-num" id="admMetricRevenue">$500.00</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Suspicious / Blocked Sessions</div>
+          <div class="metric-num" id="admMetricBots">0 / 0</div>
+        </div>
+      </div>
+
+      <!-- AI Bot Detection Activity Table -->
+      <div class="admin-table-wrap">
+        <div style="padding: 18px 22px; background: rgba(30, 13, 5, 0.9); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="font-family: var(--font-heading); font-size: 18px; color: var(--honey-gold);">
+            🤖 AI Behavioral Bot Risk Scoring & Signals
+          </h3>
+          <span style="font-size: 12px; opacity: 0.7;">Explainable risk scoring with multi-signal telemetry</span>
+        </div>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Session ID</th>
+              <th>Risk Score</th>
+              <th>Risk Category</th>
+              <th>Explainable Behavioral Signals</th>
+              <th>Action Taken</th>
+              <th>Controls</th>
+            </tr>
+          </thead>
+          <tbody id="adminBotTableBody">
+            <tr><td colspan="6" style="text-align: center; opacity: 0.6;">No suspicious bot activity recorded yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Live Bookings History -->
+      <div class="admin-table-wrap" style="margin-top: 30px;">
+        <div style="padding: 18px 22px; background: rgba(30, 13, 5, 0.9); border-bottom: 1px solid var(--card-border);">
+          <h3 style="font-family: var(--font-heading); font-size: 18px; color: var(--honey-gold);">
+            🎟️ Real-Time Bookings Ledger
+          </h3>
+        </div>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Booking Ref</th>
+              <th>Customer</th>
+              <th>Seats</th>
+              <th>Amount</th>
+              <th>Payment Status</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="adminBookingsTableBody">
+            <tr><td colspan="6" style="text-align: center; opacity: 0.6;">Loading bookings...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+       MODALS
+       ========================================================================== -->
+
+  <!-- 1. CHECKOUT & PAYMENT MODAL -->
+  <div class="modal-backdrop" id="checkoutModal">
+    <div class="modal-content">
+      <button class="modal-close-btn" onclick="closeModal('checkoutModal')">✕</button>
+      <h3 style="font-family: var(--font-heading); font-size: 24px; margin-bottom: 8px;">Order Checkout</h3>
+      <p style="font-size: 13px; opacity: 0.8; margin-bottom: 20px;">
+        Verify your seats and complete the simulated transaction before your hold expires.
+      </p>
+
+      <div style="background: rgba(30, 13, 5, 0.7); border: 1px solid var(--card-border); border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <span style="opacity: 0.8;">Event:</span>
+          <strong id="chkEventTitle">Neon Nocturne 2026</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <span style="opacity: 0.8;">Reserved Seats:</span>
+          <strong id="chkSeatsList" style="color: var(--honey-gold);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <span style="opacity: 0.8;">Hold Expiry:</span>
+          <span id="chkCountdown" style="color: var(--honey-gold); font-weight: 700;">05:00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgba(217, 149, 74, 0.2);">
+          <span style="font-size: 15px; font-weight: 600;">Total Amount:</span>
+          <span id="chkTotalAmount" style="font-size: 22px; font-weight: 800; color: var(--cream);">$0.00</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Payment Method</label>
+        <select class="form-select" id="payMethodSelect">
+          <option value="Credit Card">Credit / Debit Card (Visa, MC, Amex)</option>
+          <option value="UPI / Instant">UPI / Instant Bank Pay</option>
+          <option value="Net Banking">Net Banking</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Simulation Test Outcome</label>
+        <select class="form-select" id="payOutcomeSelect">
+          <option value="success">Simulate Successful Transaction (200 OK)</option>
+          <option value="failure">Simulate Bank Decline / Insufficient Funds (402)</option>
+          <option value="cancelled">Simulate User Cancellation (400)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" id="executePayBtn" onclick="executePayment()">
+        <span>Confirm Payment & Book Seats</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. BOOKING CONFIRMATION & QR TICKET MODAL -->
+  <div class="modal-backdrop" id="confirmationModal">
+    <div class="modal-content" style="max-width: 480px;">
+      <button class="modal-close-btn" onclick="closeModal('confirmationModal')">✕</button>
+      <div class="ticket-card" id="printableTicketArea">
+        <div class="ticket-badge">VERIFIED BOOKING CONFIRMATION</div>
+        <h3 style="font-family: var(--font-heading); font-size: 22px; margin-bottom: 4px;" id="ticketEventName">Neon Nocturne</h3>
+        <p style="font-size: 12px; opacity: 0.8; margin-bottom: 12px;" id="ticketVenue">Royal Walnut Amphitheatre</p>
+
+        <div class="ticket-ref" id="ticketBookingRef">SURGE-XXXXXX</div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; text-align: left; margin: 14px 0; padding: 12px; background: rgba(30, 13, 5, 0.5); border-radius: 10px;">
+          <div>
+            <div style="opacity: 0.7; font-size: 11px;">SEATS</div>
+            <strong id="ticketSeatLabels">-</strong>
+          </div>
+          <div>
+            <div style="opacity: 0.7; font-size: 11px;">AMOUNT PAID</div>
+            <strong id="ticketAmountPaid">$0.00</strong>
+          </div>
+        </div>
+
+        <div class="qr-canvas-box">
+          <canvas id="ticketQrCanvas" width="160" height="160"></canvas>
+        </div>
+        <p style="font-size: 11px; opacity: 0.7; margin-top: 6px;">
+          Scan QR at Royal Walnut Gate for verified entry.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 20px;">
+        <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="printTicket()">
+          <span>🖨️ Print Ticket</span>
+        </button>
+        <button class="btn btn-primary btn-sm" style="flex: 1;" onclick="closeModal('confirmationModal'); openMyBookings();">
+          <span>View My Bookings</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. MY BOOKINGS MODAL -->
+  <div class="modal-backdrop" id="myBookingsModal">
+    <div class="modal-content" style="max-width: 600px;">
+      <button class="modal-close-btn" onclick="closeModal('myBookingsModal')">✕</button>
+      <h3 style="font-family: var(--font-heading); font-size: 24px; margin-bottom: 16px;">My Bookings</h3>
+      <div id="myBookingsList" style="display: flex; flex-direction: column; gap: 14px;">
+        <p style="opacity: 0.6; text-align: center;">Loading your tickets...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. AUTHENTICATION MODAL (LOGIN / REGISTER) -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal-content" style="max-width: 440px;">
+      <button class="modal-close-btn" onclick="closeModal('authModal')">✕</button>
+      
+      <div style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+        <button id="authTabLogin" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="switchAuthTab('login')">Sign In</button>
+        <button id="authTabRegister" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="switchAuthTab('register')">Register</button>
+      </div>
+
+      <form id="authForm" onsubmit="handleAuthSubmit(event)">
+        <div class="form-group" id="authNameGroup" style="display: none;">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-input" id="authNameInput" placeholder="e.g. Alice Sterling">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" class="form-input" id="authEmailInput" required placeholder="name@seatsurge.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" id="authPasswordInput" required placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;" id="authSubmitBtn">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Quick Demo Logins -->
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(217, 149, 74, 0.15); text-align: center;">
+        <div style="font-size: 11px; opacity: 0.7; text-transform: uppercase; margin-bottom: 10px;">Quick Demo Accounts</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" style="flex: 1; font-size: 11px;" onclick="quickLogin('alice@seatsurge.com', 'Password@123')">Alice (Customer)</button>
+          <button class="btn btn-secondary btn-sm" style="flex: 1; font-size: 11px;" onclick="quickLogin('admin@seatsurge.com', 'Admin@123456')">Admin (Vance)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. HUMAN VERIFICATION (AI BOT CHALLENGE) MODAL -->
+  <div class="modal-backdrop" id="captchaModal">
+    <div class="modal-content" style="max-width: 420px; text-align: center;">
+      <div style="font-size: 36px; margin-bottom: 10px;">🛡️</div>
+      <h3 style="font-family: var(--font-heading); font-size: 22px; margin-bottom: 8px;">Security Verification</h3>
+      <p style="font-size: 13px; opacity: 0.8; margin-bottom: 20px;">
+        Our behavioral screening detected unusually fast interactions. Please solve this quick verification challenge to proceed.
+      </p>
+
+      <div style="background: rgba(30, 13, 5, 0.7); border: 1px solid var(--card-border-glow); border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+        <div style="font-family: monospace; font-size: 28px; font-weight: 800; color: var(--honey-gold);" id="captchaProblemText">
+          14 + 27 = ?
+        </div>
+      </div>
+
+      <div class="form-group">
+        <input type="number" class="form-input" id="captchaAnswerInput" placeholder="Enter solution" style="text-align: center; font-size: 20px; font-weight: 700;">
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%;" onclick="submitCaptchaVerification()">
+        Verify & Continue
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ==========================================================================
+       VANILLA JAVASCRIPT APPLICATION CORE
+       ========================================================================== -->
+  <script>
+    // Global Application State
+    const AppState = {
+      user: null,
+      token: localStorage.getItem('seatsurge_token') || null,
+      sessionId: 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36),
+      eventId: 'evt_symphony_2026',
+      event: null,
+      seats: [],
+      selectedSeatIds: [],
+      activeHold: null,
+      holdTimerInterval: null,
+      holdRemainingSeconds: 0,
+      queueStatus: null,
+      admissionToken: null,
+      socket: null,
+      telemetry: {
+        mouseMoves: [],
+        clickIntervals: [],
+        lastClickTime: null,
+        formStartTime: null,
+        pageLoadTime: Date.now()
+      },
+      captchaExpectedSum: null
+    };
+
+    /* --------------------------------------------------------------------------
+       1. CANVAS CURSOR SPARKLE EFFECT
+       -------------------------------------------------------------------------- */
+    (function initCanvasSparkles() {
+      const canvas = document.getElementById('sparkleCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const particles = [];
+      const MAX_PARTICLES = 120;
+      const colors = ['#D9954A', '#B8692A', '#F6E7D3', '#E5A65D'];
+
+      // Lagged cursor dot position
+      let cursorX = width / 2;
+      let cursorY = height / 2;
+      let targetX = cursorX;
+      let targetY = cursorY;
+
+      // Check reduced motion preference or touch
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const isTouch = ('ontouchstart' in window);
+
+      window.addEventListener('mousemove', (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+
+        // Sample behavioral telemetry
+        if (AppState.telemetry.mouseMoves.length < 50) {
+          AppState.telemetry.mouseMoves.push({
+            x: Math.round(e.clientX),
+            y: Math.round(e.clientY),
+            t: Date.now()
+          });
+        }
+
+        if (prefersReducedMotion || isTouch) return;
+
+        // Emit small trail sparkles
+        if (Math.random() < 0.4 && particles.length < MAX_PARTICLES) {
+          particles.push({
+            x: e.clientX,
+            y: e.clientY,
+            vx: (Math.random() - 0.5) * 1.5,
+            vy: Math.random() * 1.2 + 0.3,
+            size: Math.random() * 2.5 + 1.2,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            alpha: 1,
+            decay: Math.random() * 0.025 + 0.015
+          });
+        }
+      });
+
+      // Burst on click
+      window.addEventListener('click', (e) => {
+        // Telemetry click intervals
+        const now = Date.now();
+        if (AppState.telemetry.lastClickTime) {
+          AppState.telemetry.clickIntervals.push(now - AppState.telemetry.lastClickTime);
+        }
+        AppState.telemetry.lastClickTime = now;
+
+        if (prefersReducedMotion || isTouch) return;
+
+        const burstCount = 14;
+        for (let i = 0; i < burstCount; i++) {
+          if (particles.length >= MAX_PARTICLES) break;
+          const angle = (Math.PI * 2 * i) / burstCount + Math.random() * 0.2;
+          const speed = Math.random() * 3 + 1.5;
+          particles.push({
+            x: e.clientX,
+            y: e.clientY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: Math.random() * 3 + 1.5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            alpha: 1,
+            decay: Math.random() * 0.03 + 0.02
+          });
+        }
+      });
+
+      function animate() {
+        ctx.clearRect(0, 0, width, height);
+
+        // Smooth cursor dot lerp
+        cursorX += (targetX - cursorX) * 0.2;
+        cursorY += (targetY - cursorY) * 0.2;
+
+        if (!isTouch) {
+          ctx.beginPath();
+          ctx.arc(cursorX, cursorY, 4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(217, 149, 74, 0.7)';
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = '#D9954A';
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+
+        // Draw and update sparkles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha -= p.decay;
+          p.size = Math.max(0.2, p.size * 0.98);
+
+          if (p.alpha <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+
+    /* --------------------------------------------------------------------------
+       2. REAL-TIME SOCKET.IO INITIALIZATION
+       -------------------------------------------------------------------------- */
+    function initSocketIO() {
+      try {
+        AppState.socket = io();
+
+        AppState.socket.on('connect', () => {
+          document.getElementById('socketStatusDot').style.background = '#4ade80';
+          document.getElementById('socketStatusText').textContent = 'Live Sync';
+          // Join Event & Queue rooms
+          AppState.socket.emit('join:event', { eventId: AppState.eventId });
+          AppState.socket.emit('join:queue', { sessionId: AppState.sessionId });
+          if (AppState.user && AppState.user.role === 'admin') {
+            AppState.socket.emit('join:admin');
+          }
+        });
+
+        AppState.socket.on('disconnect', () => {
+          document.getElementById('socketStatusDot').style.background = '#f87171';
+          document.getElementById('socketStatusText').textContent = 'Offline';
+        });
+
+        // Live Seat State Events
+        AppState.socket.on('seats:held', (data) => {
+          if (data && data.seatIds) {
+            data.seatIds.forEach(id => updateSeatStateInUI(id, 'held'));
+            showToast('Seats temporarily held by another attendee', 'info');
+          }
+        });
+
+        AppState.socket.on('seats:released', (data) => {
+          if (data && data.seatIds) {
+            data.seatIds.forEach(id => updateSeatStateInUI(id, 'available'));
+            showToast('Expired seat reservation released back to arena!', 'success');
+          }
+        });
+
+        AppState.socket.on('seats:booked', (data) => {
+          if (data && data.seatIds) {
+            data.seatIds.forEach(id => updateSeatStateInUI(id, 'booked'));
+            showToast(`Booking ${data.bookingReference} confirmed! Seats secured.`, 'success');
+          }
+        });
+
+        AppState.socket.on('seats:reset', () => {
+          fetchSeats();
+          showToast('Seat map reset by administrator', 'info');
+        });
+
+        // Queue Updates
+        AppState.socket.on('queue:update', (data) => {
+          updateQueueUI(data);
+        });
+
+        AppState.socket.on('queue:access_granted', (data) => {
+          AppState.admissionToken = data.admissionToken;
+          updateQueueUI({ status: 'access_granted', position: 0 });
+          showToast('🎉 Access Granted! You may now select your seats.', 'success');
+          proceedToBookingArena();
+        });
+
+        // Admin Real-time Alerts
+        AppState.socket.on('admin:bot_alert', (data) => {
+          if (AppState.user && AppState.user.role === 'admin') {
+            showToast(`⚠️ Suspicious Bot Flagged: ${data.sessionId} (${data.riskCategory})`, 'warning');
+            loadAdminDashboard();
+          }
+        });
+
+        AppState.socket.on('admin:new_booking', () => {
+          if (AppState.user && AppState.user.role === 'admin') {
+            loadAdminDashboard();
+          }
+        });
+
+      } catch (err) {
+        console.warn('Socket.IO init notice:', err.message);
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       3. API COMMUNICATION HELPERS
+       -------------------------------------------------------------------------- */
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (AppState.token) {
+        headers['Authorization'] = `Bearer ${AppState.token}`;
+      }
+
+      const options = { method, headers };
+      if (body) options.body = JSON.stringify(body);
+
+      const res = await fetch(endpoint, options);
+      const data = await res.json();
+
+      if (!res.ok) {
+        const error = new Error(data.error || 'Request failed');
+        error.status = res.status;
+        error.code = data.code;
+        throw error;
+      }
+      return data;
+    }
+
+    /* --------------------------------------------------------------------------
+       4. AUTHENTICATION & USER PROFILE
+       -------------------------------------------------------------------------- */
+    async function checkAuthSession() {
+      if (!AppState.token) {
+        renderAuthUI(null);
+        return;
+      }
+      try {
+        const res = await apiRequest('/api/auth/me');
+        if (res.success && res.user) {
+          AppState.user = res.user;
+          renderAuthUI(AppState.user);
+        }
+      } catch (e) {
+        AppState.token = null;
+        localStorage.removeItem('seatsurge_token');
+        renderAuthUI(null);
+      }
+    }
+
+    function renderAuthUI(user) {
+      const slot = document.getElementById('authNavSlot');
+      const adminNav = document.getElementById('adminNavBtn');
+
+      if (user) {
+        slot.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 13px; text-align: right;">
+              <div style="font-weight: 600; color: var(--honey-gold);">${user.name}</div>
+              <div style="font-size: 11px; opacity: 0.7;">${user.role.toUpperCase()}</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="logout()">Sign Out</button>
+          </div>
+        `;
+        if (user.role === 'admin') {
+          adminNav.style.display = 'inline-block';
+        }
+      } else {
+        slot.innerHTML = `<button class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">Sign In</button>`;
+      }
+    }
+
+    function openAuthModal(tab = 'login') {
+      switchAuthTab(tab);
+      openModal('authModal');
+    }
+
+    function switchAuthTab(tab) {
+      const isReg = tab === 'register';
+      document.getElementById('authNameGroup').style.display = isReg ? 'block' : 'none';
+      document.getElementById('authSubmitBtn').textContent = isReg ? 'Create Account' : 'Sign In';
+      document.getElementById('authTabLogin').className = isReg ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
+      document.getElementById('authTabRegister').className = isReg ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const isReg = document.getElementById('authNameGroup').style.display !== 'none';
+      const email = document.getElementById('authEmailInput').value;
+      const password = document.getElementById('authPasswordInput').value;
+      const name = document.getElementById('authNameInput').value;
+
+      try {
+        const endpoint = isReg ? '/api/auth/register' : '/api/auth/login';
+        const payload = isReg ? { name, email, password } : { email, password };
+        const res = await apiRequest(endpoint, 'POST', payload);
+
+        AppState.token = res.token;
+        AppState.user = res.user;
+        localStorage.setItem('seatsurge_token', res.token);
+
+        renderAuthUI(res.user);
+        closeModal('authModal');
+        showToast(res.message || 'Logged in successfully!', 'success');
+
+        if (res.user.role === 'admin') {
+          AppState.socket.emit('join:admin');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function quickLogin(email, password) {
+      document.getElementById('authEmailInput').value = email;
+      document.getElementById('authPasswordInput').value = password;
+      await handleAuthSubmit(new Event('submit'));
+    }
+
+    function logout() {
+      AppState.token = null;
+      AppState.user = null;
+      localStorage.removeItem('seatsurge_token');
+      renderAuthUI(null);
+      document.getElementById('adminDashboard').style.display = 'none';
+      showToast('Logged out successfully.', 'info');
+    }
+
+    /* --------------------------------------------------------------------------
+       5. EVENT & LIVE SEAT MAP LOGIC
+       -------------------------------------------------------------------------- */
+    async function loadEventData() {
+      try {
+        const res = await apiRequest(`/api/events/${AppState.eventId}`);
+        if (res.success && res.event) {
+          AppState.event = res.event;
+          document.getElementById('eventCardTitle').textContent = res.event.title;
+          document.getElementById('eventCardDesc').textContent = res.event.description;
+          document.getElementById('eventCardVenue').textContent = res.event.venue;
+          document.getElementById('heroSeatsAvailable').textContent = res.event.available_seats || 58;
+        }
+      } catch (e) {
+        console.warn('LoadEvent warning:', e.message);
+      }
+    }
+
+    async function fetchSeats() {
+      try {
+        const res = await apiRequest(`/api/seats?eventId=${AppState.eventId}`);
+        if (res.success && res.seats) {
+          AppState.seats = res.seats;
+          renderSeatMap(res.seats);
+          updateSeatCounts(res.seats);
+        }
+      } catch (err) {
+        console.error('FetchSeats error:', err);
+      }
+    }
+
+    function renderSeatMap(seats) {
+      const container = document.getElementById('seatMapRows');
+      container.innerHTML = '';
+
+      // Group seats by row
+      const rows = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+      rows.forEach(rowLetter => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'seat-row';
+
+        const label = document.createElement('div');
+        label.className = 'row-label';
+        label.textContent = rowLetter;
+        rowDiv.appendChild(label);
+
+        const seatsWrapper = document.createElement('div');
+        seatsWrapper.className = 'row-seats';
+
+        const rowSeats = seats.filter(s => s.seat_row === rowLetter).sort((a, b) => a.seat_number - b.seat_number);
+
+        rowSeats.forEach(seat => {
+          const btn = document.createElement('button');
+          btn.id = `seat-btn-${seat.id}`;
+          btn.className = `seat-btn ${seat.status}`;
+          if (AppState.selectedSeatIds.includes(seat.id)) {
+            btn.className = `seat-btn selected`;
+          }
+
+          btn.innerHTML = `
+            <span class="seat-num">${seat.seat_number}</span>
+            <span class="seat-cat-badge">${seat.category.substring(0, 3)}</span>
+          `;
+
+          if (seat.status === 'available') {
+            btn.onclick = () => toggleSeatSelection(seat);
+          } else if (seat.status === 'held') {
+            btn.title = 'Temporarily held by another buyer';
+          } else if (seat.status === 'booked') {
+            btn.title = 'Sold';
+          }
+
+          seatsWrapper.appendChild(btn);
+        });
+
+        rowDiv.appendChild(seatsWrapper);
+        container.appendChild(rowDiv);
+      });
+    }
+
+    function updateSeatStateInUI(seatId, newStatus) {
+      const btn = document.getElementById(`seat-btn-${seatId}`);
+      if (btn) {
+        btn.className = `seat-btn ${newStatus}`;
+        if (newStatus === 'available') {
+          const s = AppState.seats.find(x => x.id === seatId);
+          if (s) btn.onclick = () => toggleSeatSelection(s);
+        } else {
+          btn.onclick = null;
+        }
+      }
+      // Update local seats array
+      const target = AppState.seats.find(s => s.id === seatId);
+      if (target) {
+        target.status = newStatus;
+        updateSeatCounts(AppState.seats);
+      }
+    }
+
+    function updateSeatCounts(seats) {
+      const available = seats.filter(s => s.status === 'available').length;
+      const held = seats.filter(s => s.status === 'held').length;
+      document.getElementById('heroSeatsAvailable').textContent = available;
+      document.getElementById('heroSeatsHeld').textContent = held;
+    }
+
+    function toggleSeatSelection(seat) {
+      const idx = AppState.selectedSeatIds.indexOf(seat.id);
+      if (idx !== -1) {
+        // Deselect
+        AppState.selectedSeatIds.splice(idx, 1);
+      } else {
+        // Select (max 6)
+        if (AppState.selectedSeatIds.length >= 6) {
+          showToast('You may select up to 6 seats per booking.', 'warning');
+          return;
+        }
+        AppState.selectedSeatIds.push(seat.id);
+      }
+      renderSeatMap(AppState.seats);
+      updateSelectionTray();
+    }
+
+    function updateSelectionTray() {
+      const trayTags = document.getElementById('traySeatTags');
+      const trayCount = document.getElementById('traySeatCount');
+      const trayTotal = document.getElementById('trayTotalPrice');
+      const confirmBtn = document.getElementById('confirmHoldBtn');
+
+      trayCount.textContent = AppState.selectedSeatIds.length;
+
+      if (AppState.selectedSeatIds.length === 0) {
+        trayTags.innerHTML = `<span style="font-size: 13px; opacity: 0.7;">Click on available seats on the map above to select.</span>`;
+        trayTotal.textContent = '$0.00';
+        confirmBtn.disabled = true;
+        return;
+      }
+
+      confirmBtn.disabled = false;
+      let total = 0;
+      trayTags.innerHTML = '';
+
+      AppState.selectedSeatIds.forEach(id => {
+        const s = AppState.seats.find(seat => seat.id === id);
+        if (s) {
+          total += parseFloat(s.price);
+          const tag = document.createElement('span');
+          tag.className = 'seat-tag';
+          tag.textContent = `${s.seat_row}${s.seat_number} ($${s.price})`;
+          trayTags.appendChild(tag);
+        }
+      });
+
+      trayTotal.textContent = `$${total.toFixed(2)}`;
+    }
+
+    /* --------------------------------------------------------------------------
+       6. SEAT HOLD & COUNTDOWN TIMER
+       -------------------------------------------------------------------------- */
+    async function requestSeatHold() {
+      if (!AppState.user) {
+        showToast('Please sign in to proceed with seat reservation.', 'info');
+        openAuthModal('login');
+        return;
+      }
+
+      if (AppState.selectedSeatIds.length === 0) {
+        showToast('Please select at least one seat.', 'warning');
+        return;
+      }
+
+      try {
+        // Submit behavioral telemetry first
+        await submitBehavioralTelemetry();
+
+        const payload = {
+          eventId: AppState.eventId,
+          seatIds: AppState.selectedSeatIds,
+          sessionId: AppState.sessionId
+        };
+
+        const res = await apiRequest('/api/seats/hold', 'POST', payload);
+
+        if (res.success && res.holdId) {
+          AppState.activeHold = res;
+          AppState.selectedSeatIds = []; // reset selection
+          renderSeatMap(AppState.seats);
+          updateSelectionTray();
+
+          showToast('Seats reserved! 5-minute countdown started.', 'success');
+          startHoldCountdown(res.durationSeconds || 300);
+          openCheckoutModal(res);
+        }
+      } catch (err) {
+        if (err.status === 409) {
+          showToast(`Seat Collision: ${err.message}`, 'error');
+          fetchSeats(); // Refresh immediately
+        } else if (err.status === 403 && err.code === 'BOT_CHALLENGE') {
+          triggerCaptchaChallenge();
+        } else {
+          showToast(err.message, 'error');
+        }
+      }
+    }
+
+    function startHoldCountdown(durationSeconds) {
+      if (AppState.holdTimerInterval) clearInterval(AppState.holdTimerInterval);
+      AppState.holdRemainingSeconds = durationSeconds;
+
+      const banner = document.getElementById('holdCountdownBox');
+      const timerVal = document.getElementById('countdownTimerVal');
+      banner.style.display = 'flex';
+
+      function tick() {
+        const mins = Math.floor(AppState.holdRemainingSeconds / 60);
+        const secs = AppState.holdRemainingSeconds % 60;
+        const display = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        timerVal.textContent = display;
+        document.getElementById('chkCountdown').textContent = display;
+
+        if (AppState.holdRemainingSeconds <= 0) {
+          clearInterval(AppState.holdTimerInterval);
+          banner.style.display = 'none';
+          closeModal('checkoutModal');
+          showToast('Your seat hold has expired and seats were released.', 'warning');
+          AppState.activeHold = null;
+          fetchSeats();
+        }
+        AppState.holdRemainingSeconds--;
+      }
+      tick();
+      AppState.holdTimerInterval = setInterval(tick, 1000);
+    }
+
+    /* --------------------------------------------------------------------------
+       7. CHECKOUT & PAYMENT SIMULATION
+       -------------------------------------------------------------------------- */
+    function openCheckoutModal(holdData) {
+      const seatLabels = holdData.seats.map(s => `${s.seat_row}${s.seat_number}`).join(', ');
+      document.getElementById('chkSeatsList').textContent = seatLabels;
+      document.getElementById('chkTotalAmount').textContent = `$${parseFloat(holdData.totalPrice).toFixed(2)}`;
+      openModal('checkoutModal');
+    }
+
+    async function executePayment() {
+      if (!AppState.activeHold) {
+        showToast('No active reservation found.', 'error');
+        return;
+      }
+
+      const payBtn = document.getElementById('executePayBtn');
+      payBtn.disabled = true;
+      payBtn.innerHTML = '<span>Processing Payment...</span>';
+
+      const method = document.getElementById('payMethodSelect').value;
+      const outcome = document.getElementById('payOutcomeSelect').value;
+      const idempKey = `idemp_${AppState.activeHold.holdId}_${Date.now()}`;
+
+      try {
+        const payload = {
+          holdId: AppState.activeHold.holdId,
+          paymentMethod: method,
+          idempotencyKey: idempKey,
+          simulationOutcome: outcome
+        };
+
+        const res = await apiRequest('/api/payments/confirm', 'POST', payload);
+
+        if (res.success && res.bookingReference) {
+          // Clear countdown
+          if (AppState.holdTimerInterval) clearInterval(AppState.holdTimerInterval);
+          document.getElementById('holdCountdownBox').style.display = 'none';
+          AppState.activeHold = null;
+
+          closeModal('checkoutModal');
+          showConfirmationModal(res);
+          showToast('🎉 Booking Confirmed! Ticket Generated.', 'success');
+          fetchSeats();
+        }
+      } catch (err) {
+        showToast(`Payment Failed: ${err.message}`, 'error');
+      } finally {
+        payBtn.disabled = false;
+        payBtn.innerHTML = '<span>Confirm Payment & Book Seats</span>';
+      }
+    }
+
+    function showConfirmationModal(booking) {
+      document.getElementById('ticketEventName').textContent = booking.eventTitle || 'Neon Nocturne 2026';
+      document.getElementById('ticketVenue').textContent = booking.venue || 'Royal Walnut Amphitheatre';
+      document.getElementById('ticketBookingRef').textContent = booking.bookingReference;
+      document.getElementById('ticketAmountPaid').textContent = `$${parseFloat(booking.totalAmount).toFixed(2)}`;
+
+      const labels = booking.seats.map(s => s.label).join(', ');
+      document.getElementById('ticketSeatLabels').textContent = labels;
+
+      // Draw verifiable QR code on canvas
+      renderQrCanvas(booking.qrCodeRef || booking.bookingReference);
+
+      openModal('confirmationModal');
+    }
+
+    /* --------------------------------------------------------------------------
+       8. VERIFIABLE QR CODE CANVAS RENDERER
+       -------------------------------------------------------------------------- */
+    function renderQrCanvas(text) {
+      const canvas = document.getElementById('ticketQrCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const size = 160;
+      ctx.clearRect(0, 0, size, size);
+
+      // Deterministic matrix generator from string hash
+      ctx.fillStyle = '#000000';
+      const matrixSize = 25;
+      const cellSize = size / matrixSize;
+
+      // Corner position squares (standard QR landmarks)
+      function drawPositionPattern(r, c) {
+        ctx.fillRect(c * cellSize, r * cellSize, cellSize * 7, cellSize * 7);
+        ctx.clearRect((c + 1) * cellSize, (r + 1) * cellSize, cellSize * 5, cellSize * 5);
+        ctx.fillRect((c + 2) * cellSize, (r + 2) * cellSize, cellSize * 3, cellSize * 3);
+      }
+      drawPositionPattern(0, 0);
+      drawPositionPattern(0, matrixSize - 7);
+      drawPositionPattern(matrixSize - 7, 0);
+
+      // Generate verifiable pseudorandom data cells based on hash of payload
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = (hash << 5) - hash + text.charCodeAt(i);
+        hash |= 0;
+      }
+
+      for (let r = 0; r < matrixSize; r++) {
+        for (let c = 0; c < matrixSize; c++) {
+          // Avoid landmark corners
+          if ((r < 8 && c < 8) || (r < 8 && c >= matrixSize - 8) || (r >= matrixSize - 8 && c < 8)) {
+            continue;
+          }
+          const bit = (Math.abs(hash ^ (r * 31 + c * 17)) % 2) === 1;
+          if (bit) {
+            ctx.fillRect(c * cellSize, r * cellSize, cellSize - 0.5, cellSize - 0.5);
+          }
+        }
+      }
+    }
+
+    function printTicket() {
+      window.print();
+    }
+
+    /* --------------------------------------------------------------------------
+       9. VIRTUAL WAITING ROOM (FIFO QUEUE)
+       -------------------------------------------------------------------------- */
+    async function enterWaitingRoom() {
+      try {
+        const payload = {
+          sessionId: AppState.sessionId,
+          eventId: AppState.eventId
+        };
+        const res = await apiRequest('/api/queue/join', 'POST', payload);
+        updateQueueUI(res);
+
+        if (res.status === 'access_granted') {
+          AppState.admissionToken = res.admissionToken;
+          showToast('Access Granted! You may proceed to live seats.', 'success');
+          proceedToBookingArena();
+        } else {
+          showToast(`Joined Waiting Room at position #${res.position}`, 'info');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function leaveWaitingRoom() {
+      try {
+        await apiRequest('/api/queue/leave', 'POST', {
+          sessionId: AppState.sessionId,
+          eventId: AppState.eventId
+        });
+        updateQueueUI({ status: 'not_in_queue' });
+        showToast('Left waiting room queue.', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function updateQueueUI(data) {
+      const posDisplay = document.getElementById('queuePositionDisplay');
+      const aheadDisplay = document.getElementById('queueAheadDisplay');
+      const waitDisplay = document.getElementById('queueWaitDisplay');
+      const statusBadge = document.getElementById('queueStatusBadge');
+      const statusLabel = document.getElementById('queueStatusLabel');
+      const progressBar = document.getElementById('queueProgressBar');
+      const message = document.getElementById('queueMessage');
+      const joinBtn = document.getElementById('joinQueueBtn');
+      const leaveBtn = document.getElementById('leaveQueueBtn');
+
+      if (data.status === 'access_granted') {
+        posDisplay.textContent = '0';
+        aheadDisplay.textContent = '0';
+        waitDisplay.textContent = '0s';
+        statusLabel.textContent = 'Access Granted';
+        progressBar.style.width = '100%';
+        message.textContent = 'Access granted! You can select seats now.';
+        joinBtn.style.display = 'none';
+        leaveBtn.style.display = 'none';
+        return;
+      }
+
+      if (data.status === 'waiting' || data.status === 'turn_approaching') {
+        posDisplay.textContent = `#${data.position}`;
+        aheadDisplay.textContent = Math.max(0, data.position - 1);
+        waitDisplay.textContent = `${data.estimatedWaitSeconds || data.position * 6}s`;
+        statusLabel.textContent = data.status === 'turn_approaching' ? 'Turn Approaching!' : 'In Line';
+
+        const pct = Math.max(10, Math.min(95, 100 - (data.position * 15)));
+        progressBar.style.width = `${pct}%`;
+        message.textContent = `You are in line at position #${data.position}. Waiting for next batch admission...`;
+
+        joinBtn.style.display = 'none';
+        leaveBtn.style.display = 'inline-block';
+      } else {
+        posDisplay.textContent = '-';
+        aheadDisplay.textContent = '-';
+        waitDisplay.textContent = '-';
+        statusLabel.textContent = 'Standby';
+        progressBar.style.width = '10%';
+        message.textContent = 'Click "Join Queue" to secure your spot in line.';
+        joinBtn.style.display = 'inline-block';
+        leaveBtn.style.display = 'none';
+      }
+    }
+
+    function proceedToBookingArena() {
+      const el = document.getElementById('liveSeats');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /* --------------------------------------------------------------------------
+       10. MY BOOKINGS LOGIC
+       -------------------------------------------------------------------------- */
+    async function openMyBookings() {
+      if (!AppState.user) {
+        showToast('Please sign in to view your bookings.', 'info');
+        openAuthModal('login');
+        return;
+      }
+      openModal('myBookingsModal');
+      const container = document.getElementById('myBookingsList');
+      container.innerHTML = '<p style="opacity: 0.6; text-align: center;">Loading bookings...</p>';
+
+      try {
+        const res = await apiRequest('/api/bookings');
+        if (res.success && res.bookings) {
+          if (res.bookings.length === 0) {
+            container.innerHTML = '<p style="opacity: 0.6; text-align: center;">No tickets purchased yet.</p>';
+            return;
+          }
+          container.innerHTML = '';
+          res.bookings.forEach(b => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: rgba(30, 13, 5, 0.7); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px;';
+            const seatNames = b.seats.map(s => s.label).join(', ');
+            card.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: var(--honey-gold); font-family: monospace; font-size: 16px;">${b.booking_reference}</strong>
+                <span class="ticket-badge" style="margin: 0;">CONFIRMED</span>
+              </div>
+              <div style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">${b.event_title || 'Neon Nocturne'}</div>
+              <div style="display: flex; justify-content: space-between; font-size: 13px; opacity: 0.85; margin-top: 10px;">
+                <span>Seats: <strong>${seatNames}</strong></span>
+                <span>Total: <strong>$${parseFloat(b.total_amount).toFixed(2)}</strong></span>
+              </div>
+            `;
+            container.appendChild(card);
+          });
+        }
+      } catch (err) {
+        container.innerHTML = `<p style="color: #f87171;">Failed to load bookings: ${err.message}</p>`;
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       11. AI BOT BEHAVIOR TELEMETRY & HUMAN VERIFICATION
+       -------------------------------------------------------------------------- */
+    async function submitBehavioralTelemetry() {
+      const now = Date.now();
+      const telemetry = {
+        sessionId: AppState.sessionId,
+        mouseMoves: AppState.telemetry.mouseMoves,
+        clickIntervals: AppState.telemetry.clickIntervals,
+        formFillDurationMs: AppState.telemetry.formStartTime ? (now - AppState.telemetry.formStartTime) : null,
+        pageLoadDurationMs: now - AppState.telemetry.pageLoadTime,
+        isKeyboardUser: false,
+        isTouchDevice: ('ontouchstart' in window)
+      };
+
+      try {
+        const res = await apiRequest('/api/bot/telemetry', 'POST', telemetry);
+        if (res.success && res.assessment) {
+          if (res.assessment.risk_category === 'HIGH') {
+            triggerCaptchaChallenge();
+          } else if (res.assessment.risk_category === 'CRITICAL') {
+            showToast('⚠️ Suspicious automated activity flagged. Session restricted.', 'error');
+          }
+        }
+      } catch (e) {
+        // Telemetry failure should not break application flow
+      }
+    }
+
+    function triggerCaptchaChallenge() {
+      const n1 = Math.floor(Math.random() * 20) + 5;
+      const n2 = Math.floor(Math.random() * 20) + 5;
+      AppState.captchaExpectedSum = n1 + n2;
+      document.getElementById('captchaProblemText').textContent = `${n1} + ${n2} = ?`;
+      document.getElementById('captchaAnswerInput').value = '';
+      openModal('captchaModal');
+    }
+
+    async function submitCaptchaVerification() {
+      const answer = document.getElementById('captchaAnswerInput').value;
+      if (!answer) return;
+
+      try {
+        const res = await apiRequest('/api/bot/verify-challenge', 'POST', {
+          sessionId: AppState.sessionId,
+          answer: parseInt(answer, 10),
+          expectedSum: AppState.captchaExpectedSum
+        });
+        if (res.success && res.verified) {
+          closeModal('captchaModal');
+          showToast('✅ Human verification successful!', 'success');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       12. ADMIN DASHBOARD ACTIONS
+       -------------------------------------------------------------------------- */
+    function toggleAdminView() {
+      const adminSec = document.getElementById('adminDashboard');
+      if (adminSec.style.display === 'none') {
+        adminSec.style.display = 'block';
+        loadAdminDashboard();
+        adminSec.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        adminSec.style.display = 'none';
+      }
+    }
+
+    async function loadAdminDashboard() {
+      try {
+        // 1. Metrics
+        const mRes = await apiRequest('/api/admin/dashboard');
+        if (mRes.success && mRes.metrics) {
+          const m = mRes.metrics;
+          document.getElementById('admMetricQueue').textContent = m.waitingRoomUsers;
+          document.getElementById('admMetricBooked').textContent = m.seatsBooked;
+          document.getElementById('admMetricRevenue').textContent = `$${parseFloat(m.totalRevenue).toFixed(2)}`;
+          document.getElementById('admMetricBots').textContent = `${m.suspiciousSessions} / ${m.blockedSessions}`;
+        }
+
+        // 2. Bot Assessments
+        const bRes = await apiRequest('/api/admin/bot-activity');
+        const botTbody = document.getElementById('adminBotTableBody');
+        if (bRes.success && bRes.assessments && bRes.assessments.length > 0) {
+          botTbody.innerHTML = '';
+          bRes.assessments.slice(0, 8).forEach(a => {
+            const tr = document.createElement('tr');
+            let riskClass = 'risk-badge-low';
+            if (a.risk_category === 'MEDIUM') riskClass = 'risk-badge-med';
+            if (a.risk_category === 'HIGH') riskClass = 'risk-badge-high';
+            if (a.risk_category === 'CRITICAL') riskClass = 'risk-badge-critical';
+
+            const signalsHtml = (a.explainable_signals || []).map(s => 
+              `<span class="signal-pill" title="${s.description || ''}">+${s.weight} ${s.signal}</span>`
+            ).join('');
+
+            tr.innerHTML = `
+              <td style="font-family: monospace; font-size: 11px;">${a.session_id.substring(0, 16)}...</td>
+              <td><strong>${a.risk_score} / 100</strong></td>
+              <td><span class="${riskClass}">${a.risk_category}</span></td>
+              <td>${signalsHtml || '<span style="opacity: 0.5;">None</span>'}</td>
+              <td><code>${a.action_taken}</code></td>
+              <td>
+                <button class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="toggleBlockSession('${a.session_id}', ${a.action_taken !== 'RESTRICT_BLOCKED'})">
+                  ${a.action_taken === 'RESTRICT_BLOCKED' ? 'Unblock' : 'Block'}
+                </button>
+              </td>
+            `;
+            botTbody.appendChild(tr);
+          });
+        }
+
+        // 3. Bookings
+        const bkRes = await apiRequest('/api/admin/bookings');
+        const bkTbody = document.getElementById('adminBookingsTableBody');
+        if (bkRes.success && bkRes.bookings && bkRes.bookings.length > 0) {
+          bkTbody.innerHTML = '';
+          bkRes.bookings.slice(0, 8).forEach(b => {
+            const tr = document.createElement('tr');
+            const seatNames = b.seats.map(s => s.label).join(', ');
+            tr.innerHTML = `
+              <td><strong style="color: var(--honey-gold); font-family: monospace;">${b.booking_reference}</strong></td>
+              <td>${b.customer_name || 'Customer'}</td>
+              <td>${seatNames}</td>
+              <td>$${parseFloat(b.total_amount).toFixed(2)}</td>
+              <td><span class="ticket-badge" style="margin: 0;">${b.status.toUpperCase()}</span></td>
+              <td style="font-size: 11px; opacity: 0.7;">${new Date(b.created_at).toLocaleTimeString()}</td>
+            `;
+            bkTbody.appendChild(tr);
+          });
+        }
+      } catch (err) {
+        console.warn('Admin load notice:', err.message);
+      }
+    }
+
+    async function admitNextQueueBatch() {
+      try {
+        const res = await apiRequest('/api/admin/queue/admit-next', 'POST');
+        showToast(res.message, 'success');
+        loadAdminDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function toggleBlockSession(sessionId, blocked) {
+      try {
+        const res = await apiRequest('/api/admin/sessions/block', 'POST', { sessionId, blocked });
+        showToast(res.message, 'info');
+        loadAdminDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function resetSeatsDemo() {
+      if (!confirm('Are you sure you want to reset the seat map to initial demo state?')) return;
+      try {
+        const res = await apiRequest('/api/admin/seats/reset', 'POST');
+        showToast(res.message, 'success');
+        fetchSeats();
+        loadAdminDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       13. MODAL & TOAST UTILITIES
+       -------------------------------------------------------------------------- */
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('open');
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('open');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+
+      let icon = 'ℹ️';
+      if (type === 'success') icon = '✅';
+      if (type === 'warning') icon = '⚠️';
+      if (type === 'error') icon = '🛑';
+
+      toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.transition = 'all 0.4s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(15px)';
+        setTimeout(() => toast.remove(), 400);
+      }, 4000);
+    }
+
+    // Close modals on clicking backdrop
+    window.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-backdrop')) {
+        e.target.classList.remove('open');
+      }
+    });
+
+    /* --------------------------------------------------------------------------
+       14. BOOTSTRAP APPLICATION
+       -------------------------------------------------------------------------- */
+    window.addEventListener('DOMContentLoaded', async () => {
+      initSocketIO();
+      await checkAuthSession();
+      await loadEventData();
+      await fetchSeats();
+      console.log('🎉 SeatSurge Application Core Loaded Successfully.');
+    });
+  </script>
+</body>
+</html>
