@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SeatSurge – Flash-Sale Ticketing Platform
 ### Problem Statement PS07: High-Concurrency Flash-Sale Ticketing Architecture
 
@@ -293,3 +294,6 @@ SeatSurge features an innovative dual-engine architecture designed for hackathon
 1. **Payment Simulation**: For the hackathon demonstration, a simulated payment gateway is implemented with real-time success/failure/cancellation branches and idempotency locks. In production, this can be linked to Stripe or Razorpay webhooks.
 2. **Single Event Scope**: The seed data initializes one featured flash-sale event with 60 seats (VIP, Premium, Standard). The database schema and controllers are architected to support multi-event and multi-venue scaling.
 3. **SMS/Email Notifications**: Booking confirmations are currently presented directly in the UI with printable/downloadable QR passes and stored in user history. Integration with SendGrid/Twilio would be the next step for transactional notifications.
+=======
+# Book-a-seat
+>>>>>>> b5436bee8130bb6a195d5986f790c41d67d60265
